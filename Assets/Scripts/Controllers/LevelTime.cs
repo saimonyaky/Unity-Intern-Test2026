@@ -9,13 +9,13 @@ public class LevelTime : LevelCondition
 
     private GameManager m_mngr;
 
-    public override void Setup(float value, Text txt, GameManager mngr)
+    public override void Setup(GameSettings settings, Text txt, GameManager mngr, BoardController board)
     {
-        base.Setup(value, txt, mngr);
+        base.Setup(settings, txt, mngr, board);
 
         m_mngr = mngr;
 
-        m_time = value;
+        m_time = settings.LevelTime;
 
         UpdateText();
     }
