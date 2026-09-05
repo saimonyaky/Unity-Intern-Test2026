@@ -19,6 +19,10 @@ public class Board
 
     private int boardSizeY;
 
+    private int hBottomCells;
+
+    private int vBottomCells;
+
     private Cell[,] m_cells;
 
     private Transform m_root;
@@ -41,6 +45,8 @@ public class Board
 
     private void CreateBoard()
     {
+        Debug.Log($"Board Size: {boardSizeX} x {boardSizeY}");
+
         Vector3 origin = new Vector3(-boardSizeX * 0.5f + 0.5f, -boardSizeY * 0.5f + 0.5f, 0f);
         GameObject prefabBG = Resources.Load<GameObject>(Constants.PREFAB_CELL_BACKGROUND);
         for (int x = 0; x < boardSizeX; x++)
@@ -48,7 +54,19 @@ public class Board
             for (int y = 0; y < boardSizeY; y++)
             {
                 GameObject go = GameObject.Instantiate(prefabBG);
-                go.transform.position = origin + new Vector3(x, y, 0f);
+
+                float posY;
+
+                if (y == 0)
+                {
+                    posY = y - 1f;
+                }
+                else
+                {
+                    posY = y;
+                }
+
+                go.transform.position = origin + new Vector3(x, posY, 0f);
                 go.transform.SetParent(m_root);
 
                 Cell cell = go.GetComponent<Cell>();
@@ -59,81 +77,66 @@ public class Board
         }
 
         //set neighbours
-        for (int x = 0; x < boardSizeX; x++)
-        {
-            for (int y = 0; y < boardSizeY; y++)
-            {
-                if (y + 1 < boardSizeY) m_cells[x, y].NeighbourUp = m_cells[x, y + 1];
-                if (x + 1 < boardSizeX) m_cells[x, y].NeighbourRight = m_cells[x + 1, y];
-                if (y > 0) m_cells[x, y].NeighbourBottom = m_cells[x, y - 1];
-                if (x > 0) m_cells[x, y].NeighbourLeft = m_cells[x - 1, y];
-            }
-        }
+        // for (int x = 0; x < boardSizeX; x++)
+        // {
+        //     for (int y = 0; y < boardSizeY - 1; y++)
+        //     {
+        //         if (y + 1 < boardSizeY) m_cells[x, y].NeighbourUp = m_cells[x, y + 1];
+        //         if (x + 1 < boardSizeX) m_cells[x, y].NeighbourRight = m_cells[x + 1, y];
+        //         if (y > 0) m_cells[x, y].NeighbourBottom = m_cells[x, y - 1];
+        //         if (x > 0) m_cells[x, y].NeighbourLeft = m_cells[x - 1, y];
+        //     }
+        // }
 
     }
 
     internal void Fill()
     {
+        List<NormalItem.eNormalType> randomTypes = Utils.CreateRandomTypes(boardSizeX, boardSizeY);
+        int typeIndex = 0;
         for (int x = 0; x < boardSizeX; x++)
         {
-            for (int y = 0; y < boardSizeY; y++)
+            for (int y = 1; y < boardSizeY; y++)
             {
                 Cell cell = m_cells[x, y];
                 NormalItem item = new NormalItem();
 
-                List<NormalItem.eNormalType> types = new List<NormalItem.eNormalType>();
-                if (cell.NeighbourBottom != null)
-                {
-                    NormalItem nitem = cell.NeighbourBottom.Item as NormalItem;
-                    if (nitem != null)
-                    {
-                        types.Add(nitem.ItemType);
-                    }
-                }
-
-                if (cell.NeighbourLeft != null)
-                {
-                    NormalItem nitem = cell.NeighbourLeft.Item as NormalItem;
-                    if (nitem != null)
-                    {
-                        types.Add(nitem.ItemType);
-                    }
-                }
-
-                item.SetType(Utils.GetRandomNormalTypeExcept(types.ToArray()));
+                item.SetType(randomTypes[typeIndex]);
                 item.SetView();
                 item.SetViewRoot(m_root);
 
                 cell.Assign(item);
                 cell.ApplyItemPosition(false);
+
+                typeIndex++;
             }
         }
     }
 
-    internal void Shuffle()
-    {
-        List<Item> list = new List<Item>();
-        for (int x = 0; x < boardSizeX; x++)
-        {
-            for (int y = 0; y < boardSizeY; y++)
-            {
-                list.Add(m_cells[x, y].Item);
-                m_cells[x, y].Free();
-            }
-        }
+    // internal void Shuffle()
+    // {
+    //     List<Item> list = new List<Item>();
+    //     for (int x = 0; x < boardSizeX; x++)
+    //     {
+    //         for (int y = 0; y < boardSizeY; y++)
+    //         {
+    //             list.Add(m_cells[x, y].Item);
+    //             m_cells[x, y].Free();
+    //         }
+    //     }
 
-        for (int x = 0; x < boardSizeX; x++)
-        {
-            for (int y = 0; y < boardSizeY; y++)
-            {
-                int rnd = UnityEngine.Random.Range(0, list.Count);
-                m_cells[x, y].Assign(list[rnd]);
-                m_cells[x, y].ApplyItemMoveToPosition();
+    //     for (int x = 0; x < boardSizeX; x++)
+    //     {
+    //         for (int y = 0; y < boardSizeY; y++)
+    //         {
+    //             int rnd = UnityEngine.Random.Range(0, list.Count);
+    //             m_cells[x, y].Assign(list[rnd]);
+    //             m_cells[x, y].ApplyItemMoveToPosition();
 
-                list.RemoveAt(rnd);
-            }
-        }
-    }
+    //             list.RemoveAt(rnd);
+    //         }
+    //     }
+    // }
 
 
     internal void FillGapsWithNewItems()
@@ -169,7 +172,7 @@ public class Board
         }
     }
 
-    public void Swap(Cell cell1, Cell cell2, Action callback)
+    public void Swap(Cell cell1, Cell cell2)
     {
         Item item = cell1.Item;
         cell1.Free();
@@ -179,7 +182,17 @@ public class Board
         cell2.Assign(item);
 
         item.View.DOMove(cell2.transform.position, 0.3f);
-        item2.View.DOMove(cell1.transform.position, 0.3f).OnComplete(() => { if (callback != null) callback(); });
+        item2.View.DOMove(cell1.transform.position, 0.3f);
+    }
+
+    public void Move(Cell cell1, Cell cell2, Action callback)
+    {
+        Item item = cell1.Item;
+        // Debug.Log($"{item}");
+        cell1.Free();
+        cell2.Assign(item);
+
+        item.View.DOMove(cell2.transform.position, 0.3f).OnComplete(() => { if (callback != null) callback(); });
     }
 
     public List<Cell> GetHorizontalMatches(Cell cell)
@@ -254,6 +267,54 @@ public class Board
         }
 
         return list;
+    }
+
+    public List<Cell> GetMatches(Cell cell)
+    {
+        List<Cell> list = new List<Cell>();
+        list.Add(cell);
+
+        Cell newCell = cell;
+        while (true)
+        {
+            Cell neib = newCell.NeighbourRight;
+            if (neib == null) break;
+
+            if (neib.IsSameType(cell))
+            {
+                Debug.Log($"dung");
+                list.Add(neib);
+                newCell = neib;
+            }
+            else break;
+        }
+
+        newCell = cell;
+        while (true)
+        {
+            Cell neib = newCell.NeighbourLeft;
+            if (neib == null) break;
+
+            if (neib.IsSameType(cell))
+            {
+                Debug.Log($"dung");
+                list.Add(neib);
+                newCell = neib;
+            }
+            else break;
+        }
+
+        return list;
+    }
+
+    public bool CheckMatches(Cell cell1, Cell cell2)
+    {
+
+        if (cell1 == null || cell2 == null) return false;
+
+        if (cell1.IsSameType(cell2))
+            return true;
+        else return false; ;
     }
 
     internal void ConvertNormalToBonus(List<Cell> matches, Cell cellToConvert)
@@ -350,7 +411,7 @@ public class Board
         var dir = GetMatchDirection(matches);
 
         var bonus = matches.Where(x => x.Item is BonusItem).FirstOrDefault();
-        if(bonus == null)
+        if (bonus == null)
         {
             return matches;
         }
@@ -537,6 +598,17 @@ public class Board
         return result;
     }
 
+    internal List<Cell> GetBottomCells()
+    {
+        List<Cell> result = new List<Cell>();
+        for (int x = 0; x < boardSizeX; x++)
+        {
+            Cell cell = m_cells[x, 0];
+            result.Add(cell);
+        }
+        return result;
+    }
+
     private Cell LookForTheSecondCellHorizontal(Cell target, Cell main)
     {
         if (target == null) return null;
@@ -635,28 +707,48 @@ public class Board
 
     internal void ShiftDownItems()
     {
-        for (int x = 0; x < boardSizeX; x++)
+        // for (int x = 0; x < boardSizeX; x++)
+        // {
+        //     int shifts = 0;
+        //     for (int y = 0; y < boardSizeY; y++)
+        //     {
+        //         Cell cell = m_cells[x, y];
+        //         if (cell.IsEmpty)
+        //         {
+        //             shifts++;
+        //             continue;
+        //         }
+
+        //         if (shifts == 0) continue;
+
+        //         Cell holder = m_cells[x, y - shifts];
+
+        //         Item item = cell.Item;
+        //         cell.Free();
+
+        //         holder.Assign(item);
+        //         item.View.DOMove(holder.transform.position, 0.3f);
+        //     }
+        // }
+        int shifts = 0;
+        for (int i = 0; i < boardSizeX; i++)
         {
-            int shifts = 0;
-            for (int y = 0; y < boardSizeY; y++)
+            Cell cell = m_cells[i, 0];
+            if (cell.IsEmpty)
             {
-                Cell cell = m_cells[x, y];
-                if (cell.IsEmpty)
-                {
-                    shifts++;
-                    continue;
-                }
-
-                if (shifts == 0) continue;
-
-                Cell holder = m_cells[x, y - shifts];
-
-                Item item = cell.Item;
-                cell.Free();
-
-                holder.Assign(item);
-                item.View.DOMove(holder.transform.position, 0.3f);
+                shifts++;
+                continue;
             }
+
+            if (shifts == 0) continue;
+
+            Cell holder = m_cells[i - shifts, 0];
+
+            Item item = cell.Item;
+            cell.Free();
+
+            holder.Assign(item);
+            item.View.DOMove(holder.transform.position, 0.3f);
         }
     }
 
